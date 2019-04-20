@@ -17,7 +17,7 @@ registerDoParallel(rCluster)
 on.exit(stopCluster(rCluster))
 
 ## setwd
-setwd("~/Documents/MIT/Spring2019/6.862/project/code/air-pollution-monitoring/")
+setwd("~/Documents/MIT/Spring2019/6.862/project/air-pollution-london/")
 
 ##===============================================================================
 ## read in munged data
@@ -55,14 +55,15 @@ prm <- data.frame(parameter = c("var", "sigma"),
                   label = c("Noise", "Sigma"))
 gp$parameters <- prm
 
-gpGrid <- function(x, y, len = NULL, search = "grid", sigma_hold = FALSE, var_hold = TRUE) {
+gpGrid <- function(x, y, len = NULL, search = "grid", sigma_hold = TRUE, var_hold = FALSE) {
   ## This produces low, middle and high values for sigma 
   ## (i.e. a vector with 3 elements). 
   srange <- kernlab::sigest(nox~., data=training, frac=0.5, scaled=TRUE, na.action=na.omit)
   sigma_vals <- seq(srange[1], srange[3], by=(srange[3]-srange[1])/len)
   ## hold sigma to be mean if indicated
   if (sigma_hold == TRUE){
-    sigmas <- mean(as.vector(sigma_vals[-2]))
+    #sigmas <- mean(as.vector(sigma_vals[-2]))
+    sigmas <-  2.371746
   } else{
     sigmas <- sigma_vals
   }
@@ -107,7 +108,10 @@ gp$prob <- gpProb
 
 x <- c('longitude', 'latitude')
 y <- c('nox')
-dta <- dta_winter_agg
+## monthly data with time
+dta <- dta_monthly_agg[which(dta_monthly_agg$month == '01'),]
+## winter data with time
+#dta <- dta_winter_agg
 dta <- dta[,c(x,y)]
 
 set.seed(998)
@@ -135,15 +139,28 @@ gpTrainRBF <- train(nox ~ ., data = training,
 gpTrainRBF
 
 ## plot RMSE
+pdf("figures/gpTrainRBF_noise.pdf", height=4, width=6)
 trellis.par.set(caretTheme())
 plot(gpTrainRBF, metric = "RMSE")
+dev.off()
 
-predict(gpTrainRBF, newdata=testing)
+## testing data
+gp_rbf_pred <- predict(gpTrainRBF, newdata=testing)
+postResample(pred = gp_rbf_pred, obs = testing$nox)
+
+## Jan best sigma: 2.371746
+
+
+## create customized kernel
+k <- function(x,y,z,sigma=0.05){
+  return(exp(sigma*(2*crossprod(x,y) - crossprod(x) - crossprod(y))))
+}
+class(k) <- "kernel"
 
 
 
 set.seed(777)
-gp2 <- gausspr(nox_stan ~ ., data=training, kernel="rbfdot", kpar=list(sigma=1), var=0.001)
+gp2 <- gausspr(nox ~ ., data=training, kernel="rbfdot", kpar=list(sigma=1), var=0.001)
 gp2
 
 
@@ -177,11 +194,11 @@ gpFitRBF <- train(training[,x], training[,y],
                   trControl=fitControl, tuneGrid=sigmaValues)
 gpFitRBF
 
-## next: keep sigma and re-run with noise parameter
+## next: keep sigma and re-run with noise parameter -- done
 
 ## lat, long, add in time
 ## 
-## option #1) stay with lat, long -- could stick with the same kernel
+## option #1) stay with lat, long -- could stick with the same kernel -- done
 
 ## option #2) add time component -- keep kernel parameters from above (first cut)
 ## try break up by month, winter/non-winter
@@ -190,7 +207,7 @@ gpFitRBF
 ## B) linear/ polynomial (to capture linear trend in time) * squared exponential in space
 
 
-## periodic kernel in time (every month) * linear/ polynomial (linear trend) * squared exponential in space
+## periodic kernel in time (every month) * linear/polynomial (linear trend) * squared exponential in space
 
 
 #predict and variance

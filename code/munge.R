@@ -8,7 +8,7 @@
 rm(list=ls())
 
 ## setwd
-setwd("~/Documents/MIT/Spring2019/6.862/project/code/air-pollution-monitoring/")
+setwd("~/Documents/MIT/Spring2019/6.862/project/air-pollution-london/")
 
 library(openair)
 library(TSA)
@@ -103,6 +103,9 @@ if (plotting == 1) {
   points(sub_win_sp, pch=as.integer(sub_win_sp$site_type), col=rgb(1,0,0,valcol))
   title(main = list("Averaged KCL Sites in Greater London Area (Winter)", cex=0.8))
   title(sub = list(paste("Number of Sites: ", length(unique(sub_win_collapse$code)), sep=""), cex=0.8))
+  legend("topleft", inset=0.53, legend=unique(sub_win_collapse$site_type),
+         pch=as.integer(unique(sub_win_collapse$site_type)), col=rgb(1,0,0,0.8),
+         cex=0.45, y.intersp=0.10, x.intersp=0.15, bty='n')
   dev.off()
   
   ## not winter
@@ -114,9 +117,12 @@ if (plotting == 1) {
   valcol <- (val + abs(min(sub_combined$nox)))/max(sub_combined$nox + abs(min(sub_combined$nox)))
   pdf("figures/avg_kcl_sites_london_no_winter.pdf")
   plot(ldnb)
-  points(sub_nowin_sp, pch=19, col=rgb(1,0,0,valcol))
+  points(sub_nowin_sp, pch=as.integer(sub_nowin_collapse$site_type), col=rgb(1,0,0,valcol))
   title(main = list("Averaged KCL Sites in Greater London Area (Not Winter)", cex=0.8))
   title(sub = list(paste("Number of Sites: ", length(unique(sub_nowin_collapse$code)), sep=""), cex=0.8))
+  legend("topleft", inset=0.53, legend=unique(sub_nowin_collapse$site_type),
+         pch=as.integer(unique(sub_nowin_collapse$site_type)), col=rgb(1,0,0,0.8),
+         cex=0.45, y.intersp=0.10, x.intersp=0.15, bty='n')
   dev.off()
 }
 

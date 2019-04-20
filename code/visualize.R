@@ -8,7 +8,7 @@
 rm(list=ls())
 
 ## setwd
-setwd("~/Documents/MIT/Spring2019/6.862/project/code/air-pollution-monitoring/")
+setwd("~/Documents/MIT/Spring2019/6.862/project/air-pollution-london/")
 
 library(openair)
 library(TSA)
