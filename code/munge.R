@@ -21,7 +21,7 @@ library(rgdal)
 library(raster)
 
 ## turn on and off plotting
-plotting <- 0
+plotting <- 1
 
 ##===============================================================================
 ## read in munged data
@@ -100,7 +100,7 @@ if (plotting == 1) {
   valcol <- (val + abs(min(sub_combined$nox)))/max(sub_combined$nox + abs(min(sub_combined$nox)))
   pdf("figures/avg_kcl_sites_london_winter.pdf")
   plot(ldnb)
-  points(sub_win_sp, pch=19, col=rgb(1,0,0,valcol))
+  points(sub_win_sp, pch=as.integer(sub_win_sp$site_type), col=rgb(1,0,0,valcol))
   title(main = list("Averaged KCL Sites in Greater London Area (Winter)", cex=0.8))
   title(sub = list(paste("Number of Sites: ", length(unique(sub_win_collapse$code)), sep=""), cex=0.8))
   dev.off()

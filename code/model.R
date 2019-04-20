@@ -10,6 +10,11 @@ rm(list=ls())
 library(kernlab)
 library(gptk)
 library(caret)
+library(robustHD)
+library(doParallel)
+rCluster <- makePSOCKcluster(4)
+registerDoParallel(rCluster)
+on.exit(stopCluster(rCluster))
 
 ## setwd
 setwd("~/Documents/MIT/Spring2019/6.862/project/code/air-pollution-monitoring/")
@@ -34,21 +39,6 @@ dta_monthly_agg <- readRDS("data/kcl_london_model_data_monthly.rds")
 ## standardize nox (mean 0, variance 1)
 ## is it making mistakes on very high and very low or generically?
 ## make bandwidth small
-
-x <- c('longitude', 'latitude')
-y <- c('nox')
-dta <- dta_winter_agg
-#dta <- dta_winter_col
-dta <- dta[,c(x,y)]
-
-set.seed(998)
-inTraining <- createDataPartition(dta[,y], p=.75, list=FALSE)
-training <- dta[inTraining,]
-testing  <- dta[-inTraining,]
-
-
-
-
 ## try radial basis kernel (RBF)
 ## nugget? noise parameter point-wise error -- allows for noise at the same point (quality of the point-wise)
 ## generate estimation for sigma values
@@ -65,7 +55,7 @@ prm <- data.frame(parameter = c("var", "sigma"),
                   label = c("Noise", "Sigma"))
 gp$parameters <- prm
 
-gpGrid <- function(x, y, len = NULL, search = "grid", sigma_hold = TRUE, sigma_val = NULL) {
+gpGrid <- function(x, y, len = NULL, search = "grid", sigma_hold = FALSE, var_hold = TRUE) {
   ## This produces low, middle and high values for sigma 
   ## (i.e. a vector with 3 elements). 
   srange <- kernlab::sigest(nox~., data=training, frac=0.5, scaled=TRUE, na.action=na.omit)
@@ -73,15 +63,21 @@ gpGrid <- function(x, y, len = NULL, search = "grid", sigma_hold = TRUE, sigma_v
   ## hold sigma to be mean if indicated
   if (sigma_hold == TRUE){
     sigmas <- mean(as.vector(sigma_vals[-2]))
+  } else{
+    sigmas <- sigma_vals
   }
-  if (!is.null(sigma_val)){
-    sigmas <- sigma_val
+  if (var_hold == TRUE){
+    var_value <- 0.001
+  } else{
+    var_max <- 0.5
+    var_min <- 0.001
+    var_value <- seq(from=var_min, to=var_max, by=(var_max-var_min)/len)
   }
   
   ## To use grid search:
   if(search == "grid") {
     out <- expand.grid(sigma = sigmas,
-                       var = seq(from=0.001, to=1, by=1/len))
+                       var = var_value)
   }
   out
 }
@@ -109,6 +105,18 @@ gp$prob <- gpProb
 
 ##===============================================================================
 
+x <- c('longitude', 'latitude')
+y <- c('nox')
+dta <- dta_winter_agg
+dta <- dta[,c(x,y)]
+
+set.seed(998)
+inTraining <- createDataPartition(dta[,y], p=.75, list=FALSE)
+training <- dta[inTraining,]
+## standardize separately to not corrupt testing and training
+training$nox <- standardize(training$nox)
+testing  <- dta[-inTraining,]
+testing$nox <- standardize(testing$nox)
 
 fitControl <- trainControl(## 10-fold CV
   method = "cv",
@@ -117,12 +125,28 @@ fitControl <- trainControl(## 10-fold CV
   repeats = 10)
 
 set.seed(825)
+system.time(
 gpTrainRBF <- train(nox ~ ., data = training, 
                    method = gp, 
-                   preProc = c("center", "scale"),
+                   #preProc = c("center", "scale"),
                    tuneLength = 10,
                    trControl = fitControl)
+)
 gpTrainRBF
+
+## plot RMSE
+trellis.par.set(caretTheme())
+plot(gpTrainRBF, metric = "RMSE")
+
+predict(gpTrainRBF, newdata=testing)
+
+
+
+set.seed(777)
+gp2 <- gausspr(nox_stan ~ ., data=training, kernel="rbfdot", kpar=list(sigma=1), var=0.001)
+gp2
+
+
 
 ##===============================================================================
 
@@ -167,6 +191,23 @@ gpFitRBF
 
 
 ## periodic kernel in time (every month) * linear/ polynomial (linear trend) * squared exponential in space
+
+
+#predict and variance
+x = c(-4, -3, -2, -1,  0, 0.5, 1, 2)
+y = c(-2,  0,  -0.5,1,  2, 1, 0, -1)
+plot(x,y)
+foo2 <- gausspr(x, y, variance.model = TRUE)
+xtest <- seq(-4,2,0.2)
+lines(xtest, predict(foo2, xtest))
+lines(xtest,
+      predict(foo2, xtest)+2*predict(foo2,xtest, type="sdeviation"),
+      col="red")
+lines(xtest,
+      predict(foo2, xtest)-2*predict(foo2,xtest, type="sdeviation"),
+      col="red")
+
+
 
 
 ##-----------------------------------------------------------
